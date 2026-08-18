@@ -21,7 +21,8 @@ func New(addr, password string, db int) *Client {
 }
 
 func (r *Client) Get(ctx context.Context, key string) (string, error) {
-	val, err := r.client.Get(ctx, key).Result()
+	val, err := r.client.HGet(ctx, "USD", "price").Result()
+
 	if err == redis.Nil {
 		return "", fmt.Errorf("key %q not found", key)
 	}

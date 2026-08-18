@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"serverSideEvents/client/redis"
 	"time"
 )
 
 type PriceTickerSseHandler struct {
-	Utils *Utils
+	Utils       *Utils
+	RedisClient *redis.Client
 }
 
 func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -33,9 +36,27 @@ func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Client disconnected")
 			return
 
-		case t := <-ticker.C:
-			fmt.Fprintf(w, "data: The current time is %s\n\n", t.Format(time.RFC3339))
+		case <-ticker.C:
+			price, err := h.GetTicker(ctx)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				flusher.Flush()
+				return
+			}
+
+			fmt.Fprintf(w, "data: Symbol:%s Price:%s\n\n", "USD", price) //TODO: parametrize the currency
 			flusher.Flush()
 		}
 	}
+}
+
+func (h *PriceTickerSseHandler) GetTicker(ctx context.Context) (string, error) {
+
+	//TODO:implement symbol parameter
+	price, err := h.RedisClient.Get(ctx, "USD")
+	if err != nil {
+		return "", err
+	}
+
+	return price, nil
 }
