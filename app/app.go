@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	redisclient "serverSideEvents/client/redis"
 	"serverSideEvents/handler"
 	"time"
 )
@@ -11,14 +12,17 @@ import (
 type App struct {
 	router       http.Handler
 	HandlerUtils *handler.Utils
+	RedisClient  *redisclient.Client
 }
 
 func New() *App {
 
 	handlerUtils := handler.NewUtils()
+	rdb := redisclient.New("localhost:6379", "", 0)
 
 	app := &App{
 		HandlerUtils: handlerUtils,
+		RedisClient:  rdb,
 	}
 
 	app.loadRoutes()
