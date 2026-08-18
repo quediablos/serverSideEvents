@@ -4,16 +4,22 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"serverSideEvents/handler"
 	"time"
 )
 
 type App struct {
-	router http.Handler
+	router       http.Handler
+	HandlerUtils *handler.Utils
 }
 
 func New() *App {
 
-	app := &App{}
+	handlerUtils := handler.NewUtils()
+
+	app := &App{
+		HandlerUtils: handlerUtils,
+	}
 
 	app.loadRoutes()
 

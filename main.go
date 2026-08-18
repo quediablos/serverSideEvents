@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	app2 "serverSideEvents/app"
+	"serverSideEvents/app"
 )
 
 func main() {
 
-	app := app2.New()
+	app := app.New()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()

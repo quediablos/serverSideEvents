@@ -6,11 +6,11 @@ import (
 	"time"
 )
 
-type ExampleSseHandler struct {
+type PriceTickerSseHandler struct {
 	Utils *Utils
 }
 
-func (h *ExampleSseHandler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	h.Utils.SetResponseHeaders(w)
 
@@ -24,7 +24,6 @@ func (h *ExampleSseHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Client connected")
 
-	// 4. Run the event loop
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 

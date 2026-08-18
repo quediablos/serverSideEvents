@@ -11,12 +11,24 @@ func (app *App) loadRoutes() {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 
-	router.Route("/", app.loadOrderRoutes)
+	router.Route("/examples", app.loadExampleRoutes)
+	router.Route("/prices", app.loadPriceTickerRoutes)
 	app.router = router
 }
 
-func (app *App) loadOrderRoutes(router chi.Router) {
-	sseHandler := &handler.ExampleSseHandler{}
+func (app *App) loadExampleRoutes(router chi.Router) {
+	examplesSseHandler := &handler.ExampleSseHandler{
+		Utils: app.HandlerUtils,
+	}
 
-	router.Post("/example-sse-handler", sseHandler.Post)
+	router.Get("/", examplesSseHandler.Get)
+}
+
+func (app *App) loadPriceTickerRoutes(router chi.Router) {
+
+	priceTickerHandler := &handler.PriceTickerSseHandler{
+		Utils: app.HandlerUtils,
+	}
+
+	router.Get("/", priceTickerHandler.Get)
 }
