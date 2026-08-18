@@ -15,6 +15,12 @@ type PriceTickerSseHandler struct {
 
 func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
 
+	currency := r.URL.Query().Get("currency")
+	if currency == "" {
+		http.Error(w, "missing required query parameter: currency", http.StatusBadRequest)
+		return
+	}
+
 	h.Utils.SetResponseHeaders(w)
 
 	flusher, ok := w.(http.Flusher)
@@ -37,23 +43,21 @@ func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case <-ticker.C:
-			price, err := h.GetTicker(ctx)
+			price, err := h.GetTicker(ctx, currency)
 			if err != nil {
-				fmt.Fprintf(w, err.Error())
+				fmt.Fprintf(w, "data: error: %s\n\n", err.Error())
 				flusher.Flush()
 				return
 			}
 
-			fmt.Fprintf(w, "data: Symbol:%s Price:%s\n\n", "USD", price) //TODO: parametrize the currency
+			fmt.Fprintf(w, "data: Symbol:%s Price:%s\n\n", currency, price)
 			flusher.Flush()
 		}
 	}
 }
 
-func (h *PriceTickerSseHandler) GetTicker(ctx context.Context) (string, error) {
-
-	//TODO:implement symbol parameter
-	price, err := h.RedisClient.Get(ctx, "USD")
+func (h *PriceTickerSseHandler) GetTicker(ctx context.Context, currency string) (string, error) {
+	price, err := h.RedisClient.Get(ctx, currency, "price")
 	if err != nil {
 		return "", err
 	}
