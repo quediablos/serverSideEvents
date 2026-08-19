@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"serverSideEvents/client/redis"
+	"strings"
 	"time"
 )
 
@@ -57,9 +58,28 @@ func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PriceTickerSseHandler) GetTicker(ctx context.Context, currency string) (string, error) {
-	price, err := h.RedisClient.Get(ctx, currency, "price")
-	if err != nil {
+
+	var price string
+	timestamp := time.Now().UTC().Format("2006_01_02_15_04_05")
+
+	priceWithTimestamp, err := h.RedisClient.Get(ctx, fmt.Sprintf("%s:%s", currency, timestamp), "price")
+
+	//General error, not indicating the data not found.
+	if err != nil && !strings.Contains(err.Error(), timestamp) {
 		return "", err
+	}
+
+	//Get the last ticker, the one without timestamp.
+	if priceWithTimestamp == "" {
+		priceWithoutTimestamp, err := h.RedisClient.Get(ctx, currency, "price")
+
+		if err != nil && !strings.Contains(err.Error(), timestamp) {
+			return "", err
+		}
+
+		price = priceWithoutTimestamp
+	} else {
+		price = priceWithTimestamp
 	}
 
 	return price, nil
