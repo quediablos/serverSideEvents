@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"serverSideEvents/client/redis"
+	"serverSideEvents/timing"
 	"strings"
 	"time"
 )
@@ -12,6 +13,7 @@ import (
 type PriceTickerSseHandler struct {
 	Utils       *Utils
 	RedisClient *redis.Client
+	TimingUtils *timing.Utils
 }
 
 func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +35,9 @@ func (h *PriceTickerSseHandler) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	fmt.Println("Client connected")
+
+	//Sleep until 80 millisecond mark of the next second.
+	h.TimingUtils.Synchronize(ctx, 80)
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()

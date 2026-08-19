@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	redisclient "serverSideEvents/client/redis"
+	"serverSideEvents/timing"
 	"time"
 )
 
@@ -14,17 +15,23 @@ const (
 	priceMin        = 47.00
 	priceMax        = 48.00
 	timestampLayout = "2006_01_02_15_04_05"
+	millisecondMark = 20
 )
 
 type UsdPriceSeederJob struct {
-	redis *redisclient.Client
+	redis       *redisclient.Client
+	TimingUtils *timing.Utils
 }
 
-func NewUsdPriceSeederJob(redis *redisclient.Client) *UsdPriceSeederJob {
-	return &UsdPriceSeederJob{redis: redis}
+func NewUsdPriceSeederJob(redis *redisclient.Client, TimingUtils *timing.Utils) *UsdPriceSeederJob {
+	return &UsdPriceSeederJob{redis: redis,
+		TimingUtils: TimingUtils}
 }
 
 func (j *UsdPriceSeederJob) Run(ctx context.Context) {
+
+	j.TimingUtils.Synchronize(ctx, millisecondMark)
+
 	deadline := time.Now().Add(seederDuration)
 	ticker := time.NewTicker(seederInterval)
 	defer ticker.Stop()
