@@ -15,7 +15,7 @@ type App struct {
 	router            http.Handler
 	HandlerUtils      *handler.Utils
 	RedisClient       *redisclient.Client
-	UsdPriceSeederJob *job.UsdPriceSeederJob
+	UsdPriceSeederJob *job.PriceSeederJob
 	TimingUtils       *timing.Utils
 }
 
@@ -24,7 +24,7 @@ func New() *App {
 	handlerUtils := handler.NewUtils()
 	rdb := redisclient.New("localhost:6379", "", 0)
 	timingUtils := timing.New()
-	usdPriceSeederJob := job.NewUsdPriceSeederJob(rdb, timingUtils)
+	usdPriceSeederJob := job.NewPriceSeederJob(rdb, timingUtils, "USD")
 
 	app := &App{
 		HandlerUtils:      handlerUtils,
