@@ -6,23 +6,31 @@ import (
 	"net/http"
 	redisclient "serverSideEvents/client/redis"
 	"serverSideEvents/handler"
+	"serverSideEvents/job"
+	"serverSideEvents/timing"
 	"time"
 )
 
 type App struct {
-	router       http.Handler
-	HandlerUtils *handler.Utils
-	RedisClient  *redisclient.Client
+	router            http.Handler
+	HandlerUtils      *handler.Utils
+	RedisClient       *redisclient.Client
+	UsdPriceSeederJob *job.UsdPriceSeederJob
+	TimingUtils       *timing.Utils
 }
 
 func New() *App {
 
 	handlerUtils := handler.NewUtils()
 	rdb := redisclient.New("localhost:6379", "", 0)
+	timingUtils := timing.New()
+	usdPriceSeederJob := job.NewUsdPriceSeederJob(rdb, timingUtils)
 
 	app := &App{
-		HandlerUtils: handlerUtils,
-		RedisClient:  rdb,
+		HandlerUtils:      handlerUtils,
+		RedisClient:       rdb,
+		UsdPriceSeederJob: usdPriceSeederJob,
+		TimingUtils:       timingUtils,
 	}
 
 	app.loadRoutes()
@@ -31,6 +39,8 @@ func New() *App {
 }
 
 func (app *App) Start(ctx context.Context) error {
+
+	go app.UsdPriceSeederJob.Run(ctx)
 
 	server := &http.Server{
 		Addr:    ":3001",

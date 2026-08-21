@@ -1,26 +1,19 @@
-package handler
+package timing
 
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 )
 
-type Utils struct{}
+type Utils struct {
+}
 
-func NewUtils() *Utils {
+func New() *Utils {
 	return &Utils{}
 }
 
-func (*Utils) SetResponseHeaders(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-}
-
-func (u *Utils) synchronize(ctx context.Context, millisecondMark time.Duration) {
+func (u *Utils) Synchronize(ctx context.Context, millisecondMark time.Duration) {
 
 	/* First synchronize the loop to start in the beginning of the new second. In order to so, the thread sleeps
 	until the 50th millisecond (roughly) mark of the next second.

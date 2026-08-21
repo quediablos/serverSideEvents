@@ -31,3 +31,11 @@ func (r *Client) Get(ctx context.Context, key string, field string) (string, err
 	}
 	return val, nil
 }
+
+func (r *Client) HSet(ctx context.Context, key string, field string, value string) error {
+	err := r.client.HSet(ctx, key, field, value).Err()
+	if err != nil {
+		return fmt.Errorf("redis hset error: %w", err)
+	}
+	return nil
+}

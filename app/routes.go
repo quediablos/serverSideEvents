@@ -29,6 +29,7 @@ func (app *App) loadPriceTickerRoutes(router chi.Router) {
 	priceTickerHandler := &handler.PriceTickerSseHandler{
 		Utils:       app.HandlerUtils,
 		RedisClient: app.RedisClient,
+		TimingUtils: app.TimingUtils,
 	}
 
 	router.Get("/", priceTickerHandler.Get)
