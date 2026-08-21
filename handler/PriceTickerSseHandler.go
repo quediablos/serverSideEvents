@@ -67,7 +67,7 @@ func (h *PriceTickerSseHandler) GetTicker(ctx context.Context, currency string) 
 	var price string
 	timestamp := time.Now().UTC().Format("2006_01_02_15_04_05")
 
-	priceWithTimestamp, err := h.RedisClient.Get(ctx, fmt.Sprintf("%s:%s", currency, timestamp), "price")
+	priceWithTimestamp, err := h.RedisClient.Get(ctx, fmt.Sprintf("TICKER_%s:%s", currency, timestamp), "price")
 
 	//General error, not indicating the data not found.
 	if err != nil && !strings.Contains(err.Error(), timestamp) {

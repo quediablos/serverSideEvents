@@ -12,11 +12,12 @@ import (
 )
 
 type App struct {
-	router            http.Handler
-	HandlerUtils      *handler.Utils
-	RedisClient       *redisclient.Client
-	UsdPriceSeederJob *job.PriceSeederJob
-	TimingUtils       *timing.Utils
+	router           http.Handler
+	HandlerUtils     *handler.Utils
+	RedisClient      *redisclient.Client
+	PriceSeederJob   *job.PriceSeederJob
+	CandleBuilderJob *job.CandleBuilderJob
+	TimingUtils      *timing.Utils
 }
 
 func New() *App {
@@ -24,13 +25,15 @@ func New() *App {
 	handlerUtils := handler.NewUtils()
 	rdb := redisclient.New("localhost:6379", "", 0)
 	timingUtils := timing.New()
-	usdPriceSeederJob := job.NewPriceSeederJob(rdb, timingUtils, "USD")
+	priceSeederJob := job.NewPriceSeederJob(rdb, timingUtils, "USDTRY")
+	candleBuilderJob := job.NewCandleBuilderJob(rdb, timingUtils, "USDTRY", job.Period1Min)
 
 	app := &App{
-		HandlerUtils:      handlerUtils,
-		RedisClient:       rdb,
-		UsdPriceSeederJob: usdPriceSeederJob,
-		TimingUtils:       timingUtils,
+		HandlerUtils:     handlerUtils,
+		RedisClient:      rdb,
+		PriceSeederJob:   priceSeederJob,
+		CandleBuilderJob: candleBuilderJob,
+		TimingUtils:      timingUtils,
 	}
 
 	app.loadRoutes()
@@ -40,7 +43,8 @@ func New() *App {
 
 func (app *App) Start(ctx context.Context) error {
 
-	go app.UsdPriceSeederJob.Run(ctx)
+	go app.PriceSeederJob.Run(ctx)
+	go app.CandleBuilderJob.Run(ctx)
 
 	server := &http.Server{
 		Addr:    ":3001",

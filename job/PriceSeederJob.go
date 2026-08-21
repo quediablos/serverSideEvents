@@ -52,7 +52,7 @@ func (j *PriceSeederJob) Run(ctx context.Context) {
 				return
 			}
 
-			key := fmt.Sprintf("%s:%s", j.currency, t.UTC().Format(timestampLayout))
+			key := fmt.Sprintf("TICKER_%s:%s", j.currency, t.UTC().Format(timestampLayout))
 			price := fmt.Sprintf("%.2f", priceMin+rand.Float64()*(priceMax-priceMin))
 
 			if err := j.redis.HSet(ctx, key, "price", price); err != nil {
