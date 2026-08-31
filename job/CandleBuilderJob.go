@@ -3,8 +3,10 @@ package job
 import (
 	"context"
 	"fmt"
+	"serverSideEvents/candle"
 	redisclient "serverSideEvents/client/redis"
 	"serverSideEvents/timing"
+	"strconv"
 	"time"
 )
 
@@ -57,25 +59,61 @@ func (j *CandleBuilderJob) Run(ctx context.Context) {
 			}
 
 			timestampTags := j.FindTimestampTagsOfPeriod(time.Now(), Period1Min)
+			prices := make([]string, 60)
 
-			//prices := make(map[string]string, len(timestampTags))
 			for _, tag := range timestampTags {
 				key := fmt.Sprintf("%s:%s", j.currency, tag)
 				price, err := j.redis.Get(ctx, key, "price")
-				_ = price
+
+				//Too early to see all the tickers of the whole time frame.
+				/*if err != nil {
+					continue outer
+				}*/
+
+				prices = append(prices, price)
+
 				if err != nil {
 					continue
 				}
-				//prices[tag] = price
 			}
 
-			_ = t
+			cnd := j.FindOHLC(prices)
+			_ = cnd
+
 		}
 	}
 }
 
 func (j *CandleBuilderJob) BuildCandle() string {
 	return ""
+}
+
+func (j *CandleBuilderJob) FindOHLC(prices []string) candle.Candle {
+
+	cnd := candle.Candle{}
+	cnd.Open = prices[0]
+	cnd.Close = prices[len(prices)-1]
+
+	var high, _ = strconv.ParseFloat(prices[0], 32)
+	var low, _ = strconv.ParseFloat(prices[0], 32)
+
+	for _, price := range prices {
+
+		p, err := strconv.ParseFloat(price, 64)
+		if err != nil {
+			continue
+		}
+		if p > high {
+			high = p
+		}
+		if p < low {
+			low = p
+		}
+	}
+
+	cnd.High = strconv.FormatFloat(high, 'f', -1, 32)
+	cnd.Low = strconv.FormatFloat(low, 'f', -1, 32)
+	return cnd
 }
 
 func (j *CandleBuilderJob) FindTimestampTagsOfPeriod(now time.Time, timeFrame TimeFrame) []string {

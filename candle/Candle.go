@@ -1,8 +1,8 @@
 package candle
 
 type Candle struct {
-	open  string
-	high  string
-	low   string
-	close string
+	Open  string
+	High  string
+	Low   string
+	Close string
 }
