@@ -18,17 +18,19 @@ const (
 	millisecondMark = 20
 )
 
-type UsdPriceSeederJob struct {
+type PriceSeederJob struct {
 	redis       *redisclient.Client
 	TimingUtils *timing.Utils
+	currency    string
 }
 
-func NewUsdPriceSeederJob(redis *redisclient.Client, TimingUtils *timing.Utils) *UsdPriceSeederJob {
-	return &UsdPriceSeederJob{redis: redis,
-		TimingUtils: TimingUtils}
+func NewPriceSeederJob(redis *redisclient.Client, TimingUtils *timing.Utils, currency string) *PriceSeederJob {
+	return &PriceSeederJob{redis: redis,
+		TimingUtils: TimingUtils,
+		currency:    currency}
 }
 
-func (j *UsdPriceSeederJob) Run(ctx context.Context) {
+func (j *PriceSeederJob) Run(ctx context.Context) {
 
 	j.TimingUtils.Synchronize(ctx, millisecondMark)
 
@@ -36,29 +38,29 @@ func (j *UsdPriceSeederJob) Run(ctx context.Context) {
 	ticker := time.NewTicker(seederInterval)
 	defer ticker.Stop()
 
-	fmt.Println("UsdPriceSeederJob: started")
+	fmt.Println("PriceSeederJob: started")
 
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("UsdPriceSeederJob: stopped (context cancelled)")
+			fmt.Println("PriceSeederJob: stopped (context cancelled)")
 			return
 
 		case t := <-ticker.C:
 			if t.After(deadline) {
-				fmt.Println("UsdPriceSeederJob: completed (10 minutes elapsed)")
+				fmt.Println("PriceSeederJob: completed (10 minutes elapsed)")
 				return
 			}
 
-			key := fmt.Sprintf("USD:%s", t.UTC().Format(timestampLayout))
+			key := fmt.Sprintf("TICKER_%s:%s", j.currency, t.UTC().Format(timestampLayout))
 			price := fmt.Sprintf("%.2f", priceMin+rand.Float64()*(priceMax-priceMin))
 
 			if err := j.redis.HSet(ctx, key, "price", price); err != nil {
-				fmt.Printf("UsdPriceSeederJob: failed to write %s: %v\n", key, err)
+				fmt.Printf("PriceSeederJob: failed to write %s: %v\n", key, err)
 				continue
 			}
 
-			fmt.Printf("UsdPriceSeederJob: set %s price=%s\n", key, price)
+			//fmt.Printf("PriceSeederJob: set %s price=%s\n", key, price)
 		}
 	}
 }
