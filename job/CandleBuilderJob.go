@@ -46,6 +46,7 @@ func (j *CandleBuilderJob) Run(ctx context.Context) {
 
 	fmt.Println("CandleBuilderJob: started")
 
+outer:
 	for {
 		select {
 		case <-ctx.Done():
@@ -58,27 +59,84 @@ func (j *CandleBuilderJob) Run(ctx context.Context) {
 				return
 			}
 
-			timestampTags := j.FindTimestampTagsOfPeriod(time.Now(), Period1Min)
-			prices := make([]string, 60)
+			second := t.Second()
 
-			for _, tag := range timestampTags {
-				key := fmt.Sprintf("%s:%s", j.currency, tag)
-				price, err := j.redis.Get(ctx, key, "price")
+			timestampTags := j.FindTimestampTagsOfPeriod(time.Now(), second, Period1Min)
 
-				//Too early to see all the tickers of the whole time frame.
-				/*if err != nil {
-					continue outer
-				}*/
+			keyCandle := fmt.Sprintf("CANDLE_1_MIN_%s:%s", j.currency, timestampTags[0])
 
-				prices = append(prices, price)
-
-				if err != nil {
-					continue
-				}
+			keyTicker := fmt.Sprintf("TICKER_%s:%s", j.currency, t.UTC().Format(timestampLayout))
+			priceTicker, err := j.redis.Get(ctx, keyTicker, "price")
+			if err != nil {
+				continue outer
 			}
 
-			cnd := j.FindOHLC(prices)
-			_ = cnd
+			//Build the candle for the first time and post it.
+			if second == 0 {
+
+				cnd := candle.Candle{
+					Open:  priceTicker,
+					High:  priceTicker,
+					Low:   priceTicker,
+					Close: priceTicker,
+				}
+
+				j.redis.HSetMultiple(ctx, keyCandle,
+					"open", cnd.Open,
+					"high", cnd.High,
+					"low", cnd.Low, "close", cnd.Close)
+
+				fmt.Println("CandleBuilderJob: candle(0):", cnd.Open, cnd.High, cnd.Low, cnd.Close)
+			} else {
+
+				candleExists := true
+				//If the candle exists from the previous run, update it.
+				candlePrevious, err := j.redis.GetCandle(ctx, keyCandle)
+				if err != nil {
+					continue outer
+				}
+
+				if candlePrevious.Open == "" {
+					candleExists = false
+				}
+
+				//Candle from previous ticker exists, update it.
+				if candleExists {
+
+					cnd := candle.Candle{}
+
+					//Compare high.
+					highPrevious, _ := strconv.ParseFloat(candlePrevious.High, 32)
+					tickerValue, _ := strconv.ParseFloat(priceTicker, 32)
+					if tickerValue > highPrevious {
+						cnd.High = priceTicker
+					} else {
+						cnd.High = candlePrevious.High
+					}
+
+					//Compare low
+					lowPrevious, _ := strconv.ParseFloat(candlePrevious.Low, 32)
+					if tickerValue < lowPrevious {
+						cnd.Low = priceTicker
+					} else {
+						cnd.Low = candlePrevious.Low
+					}
+
+					cnd.Open = candlePrevious.Open
+					cnd.Close = priceTicker
+
+					j.redis.HSetMultiple(ctx, keyCandle,
+						"open", cnd.Open,
+						"high", cnd.High,
+						"low", cnd.Low, "close", cnd.Close)
+
+					fmt.Println("CandleBuilderJob: candle(u):", cnd.Open, cnd.High, cnd.Low, cnd.Close)
+
+				} else {
+					//Cold start case where there is no previous data for the timeframe.
+					//TODO:implement
+				}
+			}
 
 		}
 	}
@@ -88,7 +146,7 @@ func (j *CandleBuilderJob) BuildCandle() string {
 	return ""
 }
 
-func (j *CandleBuilderJob) FindOHLC(prices []string) candle.Candle {
+func (j *CandleBuilderJob) FindOHLCFromTickers(prices []string) candle.Candle {
 
 	cnd := candle.Candle{}
 	cnd.Open = prices[0]
@@ -116,14 +174,12 @@ func (j *CandleBuilderJob) FindOHLC(prices []string) candle.Candle {
 	return cnd
 }
 
-func (j *CandleBuilderJob) FindTimestampTagsOfPeriod(now time.Time, timeFrame TimeFrame) []string {
+func (j *CandleBuilderJob) FindTimestampTagsOfPeriod(now time.Time, second int, timeFrame TimeFrame) []string {
 	var timeFrameStart time.Time
-	var duration time.Duration
 
 	switch timeFrame {
 	case Period1Min:
 		timeFrameStart = now.Truncate(1 * time.Minute)
-		duration = 1 * time.Minute
 		//TODO:implementation for the other timestamps will be different.
 		/*case Period5Min:
 			timeFrameStart = now.Truncate(5 * time.Minute)
@@ -142,10 +198,15 @@ func (j *CandleBuilderJob) FindTimestampTagsOfPeriod(now time.Time, timeFrame Ti
 			duration = 1 * time.Minute*/
 	}
 
-	totalSeconds := int(duration.Seconds())
-	tags := make([]string, 0, totalSeconds)
+	tags := make([]string, 0, second)
 
-	for i := range totalSeconds {
+	if second == 0 {
+		t := timeFrameStart.UTC().Add(time.Duration(0) * time.Second)
+		tags = append(tags, t.Format(timestampLayout))
+		return tags
+	}
+
+	for i := range second {
 		t := timeFrameStart.UTC().Add(time.Duration(i) * time.Second)
 		tags = append(tags, t.Format(timestampLayout))
 	}

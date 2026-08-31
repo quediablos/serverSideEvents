@@ -60,7 +60,7 @@ func (j *PriceSeederJob) Run(ctx context.Context) {
 				continue
 			}
 
-			fmt.Printf("PriceSeederJob: set %s price=%s\n", key, price)
+			//fmt.Printf("PriceSeederJob: set %s price=%s\n", key, price)
 		}
 	}
 }
