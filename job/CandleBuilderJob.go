@@ -66,7 +66,8 @@ outer:
 
 			keyCandle := fmt.Sprintf("CANDLE_1_MIN_%s:%s", j.currency, timestampTags[0])
 
-			keyTicker := fmt.Sprintf("TICKER_%s:%s", j.currency, t.UTC().Format(timestampLayout))
+			//keyTicker := fmt.Sprintf("TICKER_%s:%s", j.currency, t.UTC().Format(timestampLayout))
+			keyTicker := j.TimingUtils.MakeTickerKey(j.currency, t.UTC().Format(timestampLayout))
 			priceTicker, err := j.redis.Get(ctx, keyTicker, "price")
 			if err != nil {
 				continue outer
@@ -82,10 +83,7 @@ outer:
 					Close: priceTicker,
 				}
 
-				j.redis.HSetMultiple(ctx, keyCandle,
-					"open", cnd.Open,
-					"high", cnd.High,
-					"low", cnd.Low, "close", cnd.Close)
+				j.SaveCandle(ctx, keyCandle, &cnd)
 
 				fmt.Println("CandleBuilderJob: candle(0):", cnd.Open, cnd.High, cnd.Low, cnd.Close)
 			} else {
@@ -104,52 +102,15 @@ outer:
 				//Candle from previous ticker exists, update it.
 				if candleExists {
 
-					cnd := candle.Candle{}
+					cnd := j.UpdateFromPreviousCandle(candlePrevious, priceTicker)
 
-					//Compare high.
-					highPrevious, _ := strconv.ParseFloat(candlePrevious.High, 32)
-					tickerValue, _ := strconv.ParseFloat(priceTicker, 32)
-					if tickerValue > highPrevious {
-						cnd.High = priceTicker
-					} else {
-						cnd.High = candlePrevious.High
-					}
-
-					//Compare low
-					lowPrevious, _ := strconv.ParseFloat(candlePrevious.Low, 32)
-					if tickerValue < lowPrevious {
-						cnd.Low = priceTicker
-					} else {
-						cnd.Low = candlePrevious.Low
-					}
-
-					cnd.Open = candlePrevious.Open
-					cnd.Close = priceTicker
-
-					j.redis.HSetMultiple(ctx, keyCandle,
-						"open", cnd.Open,
-						"high", cnd.High,
-						"low", cnd.Low, "close", cnd.Close)
+					j.SaveCandle(ctx, keyCandle, &cnd)
 
 					fmt.Println("CandleBuilderJob: candle(u):", cnd.Open, cnd.High, cnd.Low, cnd.Close)
 
 				} else {
 					//Cold start case where there is no previous data for the timeframe.
-					priceTagsFromPreviousTickers := j.FindTimestampTagsOfPeriod(now, second, Period1Min)
-
-					tickerKeys := make([]string, len(priceTagsFromPreviousTickers))
-					for i, tag := range priceTagsFromPreviousTickers {
-						tickerKeys[i] = fmt.Sprintf("TICKER_%s:%s", j.currency, tag)
-					}
-
-					prices, _ := j.redis.GetMany(ctx, tickerKeys, "price")
-
-					cnd := j.FindOHLCFromTickers(prices)
-
-					j.redis.HSetMultiple(ctx, keyCandle,
-						"open", cnd.Open,
-						"high", cnd.High,
-						"low", cnd.Low, "close", cnd.Close)
+					//TODO:to be implemented later.
 				}
 			}
 
@@ -157,8 +118,37 @@ outer:
 	}
 }
 
-func (j *CandleBuilderJob) BuildCandle() string {
-	return ""
+func (j *CandleBuilderJob) SaveCandle(ctx context.Context, keyCandle string, candle *candle.Candle) {
+	j.redis.HSetMultiple(ctx, keyCandle,
+		"open", candle.Open,
+		"high", candle.High,
+		"low", candle.Low, "close", candle.Close)
+}
+
+func (j *CandleBuilderJob) UpdateFromPreviousCandle(candlePrevious candle.Candle,
+	priceTicker string) candle.Candle {
+	cnd := candle.Candle{}
+
+	//Compare high.
+	highPrevious, _ := strconv.ParseFloat(candlePrevious.High, 32)
+	tickerValue, _ := strconv.ParseFloat(priceTicker, 32)
+	if tickerValue > highPrevious {
+		cnd.High = priceTicker
+	} else {
+		cnd.High = candlePrevious.High
+	}
+
+	//Compare low
+	lowPrevious, _ := strconv.ParseFloat(candlePrevious.Low, 32)
+	if tickerValue < lowPrevious {
+		cnd.Low = priceTicker
+	} else {
+		cnd.Low = candlePrevious.Low
+	}
+
+	cnd.Open = candlePrevious.Open
+	cnd.Close = priceTicker
+	return cnd
 }
 
 func (j *CandleBuilderJob) FindOHLCFromTickers(prices []string) candle.Candle {

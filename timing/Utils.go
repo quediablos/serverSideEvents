@@ -32,3 +32,11 @@ func (u *Utils) Synchronize(ctx context.Context, millisecondMark time.Duration) 
 		return
 	}
 }
+
+func (u *Utils) MakeTickerKey(symbol string, timestampTag string) string {
+	return fmt.Sprintf("TICKER_%s:%s", symbol, timestampTag)
+}
+
+func (u *Utils) MakeCandleKey(symbol string) string {
+	return ""
+}
