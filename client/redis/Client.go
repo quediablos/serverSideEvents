@@ -62,6 +62,31 @@ func (r *Client) GetCandle(ctx context.Context, key string) (candle.Candle, erro
 	}, nil
 }
 
+func (r *Client) GetMany(ctx context.Context, keys []string, field string) ([]string, error) {
+	pipe := r.client.Pipeline()
+	cmds := make([]*redis.StringCmd, len(keys))
+	for i, key := range keys {
+		cmds[i] = pipe.HGet(ctx, key, field)
+	}
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("redis pipeline error: %w", err)
+	}
+
+	results := make([]string, len(keys))
+	for i, cmd := range cmds {
+		val, err := cmd.Result()
+		if err == redis.Nil {
+			results[i] = ""
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("redis get error for key %q: %w", keys[i], err)
+		}
+		results[i] = val
+	}
+	return results, nil
+}
+
 func (r *Client) HSetMultiple(ctx context.Context, key string, values ...any) error {
 	err := r.client.HSet(ctx, key, values).Err()
 	if err != nil {

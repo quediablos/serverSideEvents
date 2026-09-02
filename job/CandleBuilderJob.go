@@ -61,7 +61,8 @@ outer:
 
 			second := t.Second()
 
-			timestampTags := j.FindTimestampTagsOfPeriod(time.Now(), second, Period1Min)
+			now := time.Now()
+			timestampTags := j.FindTimestampTagsOfPeriod(now, second, Period1Min)
 
 			keyCandle := fmt.Sprintf("CANDLE_1_MIN_%s:%s", j.currency, timestampTags[0])
 
@@ -134,7 +135,21 @@ outer:
 
 				} else {
 					//Cold start case where there is no previous data for the timeframe.
-					//TODO:implement
+					priceTagsFromPreviousTickers := j.FindTimestampTagsOfPeriod(now, second, Period1Min)
+
+					tickerKeys := make([]string, len(priceTagsFromPreviousTickers))
+					for i, tag := range priceTagsFromPreviousTickers {
+						tickerKeys[i] = fmt.Sprintf("TICKER_%s:%s", j.currency, tag)
+					}
+
+					prices, _ := j.redis.GetMany(ctx, tickerKeys, "price")
+
+					cnd := j.FindOHLCFromTickers(prices)
+
+					j.redis.HSetMultiple(ctx, keyCandle,
+						"open", cnd.Open,
+						"high", cnd.High,
+						"low", cnd.Low, "close", cnd.Close)
 				}
 			}
 
